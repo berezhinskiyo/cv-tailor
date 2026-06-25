@@ -68,14 +68,16 @@ class OpenAIGenerator:
             f"Совпадающие навыки: {', '.join(matched_skills) or 'нет'}\n"
             f"Недостающие навыки: {', '.join(missing_skills) or 'нет'}"
         )
-        response = self.client.responses.create(
+        response = self.client.chat.completions.create(
             model=settings.openai_model,
-            input=[
+            messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
+            response_format={"type": "json_object"},
+            temperature=0.4,
         )
-        data = _extract_json(response.output_text)
+        data = _extract_json(response.choices[0].message.content or "")
         cover_letter = (data.pop("cover_letter", "") or "").strip()
         document = _normalize_document(data, resume_text, matched_skills)
         if not cover_letter:
