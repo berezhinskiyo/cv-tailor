@@ -305,11 +305,11 @@ export function LandingPage() {
               </div>
               <p style={{ fontSize: 12, opacity: 0.8, marginTop: 12, lineHeight: 1.45 }}>
                 Входя через провайдера, вы принимаете условия{" "}
-                <Link to="/offer" target="_blank" style={{ color: "#bfdbfe", textDecoration: "underline" }}>
+                <Link to="/offer" target="_blank" style={{ color: "#bbf7d0", textDecoration: "underline" }}>
                   оферты
                 </Link>{" "}
                 и{" "}
-                <Link to="/privacy" target="_blank" style={{ color: "#bfdbfe", textDecoration: "underline" }}>
+                <Link to="/privacy" target="_blank" style={{ color: "#bbf7d0", textDecoration: "underline" }}>
                   политики обработки персональных данных
                 </Link>
                 .
@@ -366,7 +366,7 @@ export function LandingPage() {
         <h2>Что делает сервис продающим</h2>
         <div className="grid-3">
           <article className="card feature-card">
-            <span className="feature-ic" style={{ background: "#e8f0ff" }}>🧭</span>
+            <span className="feature-ic" style={{ background: "#d1fae5" }}>🧭</span>
             <h3>Карта пробелов</h3>
             <p className="muted">Показывает, каких навыков и формулировок не хватает под конкретную роль.</p>
           </article>
@@ -393,7 +393,7 @@ export function LandingPage() {
           </article>
           <article className="card price-card price-card--featured">
             <span className="price-flag">Популярный</span>
-            <span className="feature-ic" style={{ background: "#e8f0ff" }}>⭐</span>
+            <span className="feature-ic" style={{ background: "#d1fae5" }}>⭐</span>
             <h3>Free account</h3>
             <p className="muted">3 анализа, история результатов, сохранённые резюме и выгрузка PDF.</p>
           </article>
