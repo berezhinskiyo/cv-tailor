@@ -31,6 +31,39 @@ export type Vacancy = {
   created_at: string;
 };
 
+export type ResumeContacts = {
+  email: string;
+  phone: string;
+  location: string;
+  website: string;
+};
+
+export type ResumeExperience = {
+  company: string;
+  role: string;
+  period: string;
+  location: string;
+  bullets: string[];
+};
+
+export type ResumeEducation = {
+  institution: string;
+  degree: string;
+  period: string;
+};
+
+export type ResumeDocument = {
+  full_name: string;
+  headline: string;
+  photo: string | null;
+  contacts: ResumeContacts;
+  summary: string;
+  experience: ResumeExperience[];
+  skills: string[];
+  education: ResumeEducation[];
+  languages: string[];
+};
+
 export type Analysis = {
   id?: number | null;
   score: number;
@@ -38,5 +71,18 @@ export type Analysis = {
   missing_skills: string[];
   improved_resume: string;
   cover_letter: string;
+  resume_document?: ResumeDocument | null;
   created_at?: string | null;
 };
+
+export const emptyResumeDocument = (): ResumeDocument => ({
+  full_name: "",
+  headline: "",
+  photo: null,
+  contacts: { email: "", phone: "", location: "", website: "" },
+  summary: "",
+  experience: [],
+  skills: [],
+  education: [],
+  languages: [],
+});

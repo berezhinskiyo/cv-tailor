@@ -1,5 +1,5 @@
 import { API_URL, api, publicApi } from "./client";
-import { Analysis, Resume, Vacancy } from "../types";
+import { Analysis, Resume, ResumeDocument, Vacancy } from "../types";
 
 export const resources = {
   listResumes: (token: string) => api<Resume[]>("/resumes", {}, token),
@@ -17,6 +17,17 @@ export const resources = {
   listAnalyses: (token: string) => api<Analysis[]>("/analysis", {}, token),
   createAnalysis: (payload: Record<string, unknown>, token: string) =>
     api<Analysis>("/analysis", { method: "POST", body: JSON.stringify(payload) }, token),
+  saveDocument: (
+    token: string,
+    id: number,
+    resume_document: ResumeDocument,
+    cover_letter: string
+  ) =>
+    api<Analysis>(
+      `/analysis/${id}/document`,
+      { method: "PUT", body: JSON.stringify({ resume_document, cover_letter }) },
+      token
+    ),
 
   // Демо-анализ без авторизации (анонимный лимит на бэкенде).
   demoAnalysis: (payload: Record<string, unknown>, anonymousId: string) =>

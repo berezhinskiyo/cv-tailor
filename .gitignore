@@ -7,8 +7,10 @@ node_modules/
 dist/
 .claude/
 .env
+.env.local
 backend/.env
 frontend/.env
+frontend/.env.local
 *.pyc
 coverage.xml
 htmlcov/

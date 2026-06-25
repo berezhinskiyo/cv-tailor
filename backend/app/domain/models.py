@@ -104,6 +104,7 @@ class Analysis(Base):
     matched_skills: Mapped[list[str]] = mapped_column(JSON)
     improved_resume: Mapped[str] = mapped_column(Text)
     cover_letter: Mapped[str] = mapped_column(Text)
+    resume_document: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     user: Mapped["User"] = relationship(back_populates="analyses")

@@ -55,6 +55,7 @@ class AnalysisService:
                 missing_skills=missing_skills,
                 improved_resume=generated.improved_resume,
                 cover_letter=generated.cover_letter,
+                resume_document=generated.document or None,
             )
 
         stored = self.analysis_repository.create(
@@ -66,6 +67,7 @@ class AnalysisService:
             missing_skills=missing_skills,
             improved_resume=generated.improved_resume,
             cover_letter=generated.cover_letter,
+            resume_document=generated.document or None,
         )
         self.user_repository.increment_analysis_count(user)
         return AnalysisResponse.model_validate(stored)

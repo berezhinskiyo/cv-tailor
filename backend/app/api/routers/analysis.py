@@ -4,7 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 from app.api.deps import DbSession, get_anonymous_id, get_current_user, get_current_user_from_query, get_current_user_optional
 from app.domain.models import User
-from app.domain.schemas import AnalysisCreateRequest, AnalysisResponse
+from app.domain.schemas import AnalysisCreateRequest, AnalysisDocumentUpdate, AnalysisResponse
+from app.infrastructure.openai_client import _flatten_document
 from app.repositories.analysis_repository import AnalysisRepository
 from app.services.analysis_service import AnalysisService
 from app.services.pdf_service import PdfService
@@ -41,6 +42,27 @@ def get_analysis(analysis_id: int, db: DbSession, user: Annotated[User, Depends(
     if analysis is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Анализ не найден.")
     return AnalysisResponse.model_validate(analysis)
+
+
+@router.put("/{analysis_id}/document", response_model=AnalysisResponse)
+def save_resume_document(
+    analysis_id: int,
+    payload: AnalysisDocumentUpdate,
+    db: DbSession,
+    user: Annotated[User, Depends(get_current_user)],
+) -> AnalysisResponse:
+    repository = AnalysisRepository(db)
+    analysis = repository.get_for_user(user.id, analysis_id)
+    if analysis is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Анализ не найден.")
+    document = payload.resume_document.model_dump()
+    updated = repository.update_document(
+        analysis,
+        resume_document=document,
+        cover_letter=payload.cover_letter,
+        improved_resume=_flatten_document(document),
+    )
+    return AnalysisResponse.model_validate(updated)
 
 
 @router.get("/{analysis_id}/pdf")

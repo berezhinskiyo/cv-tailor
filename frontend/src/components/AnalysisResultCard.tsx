@@ -3,6 +3,7 @@ import { Analysis } from "../types";
 type Props = {
   analysis: Analysis;
   pdfUrl?: string;
+  summaryOnly?: boolean;
 };
 
 function scoreClass(score: number): string {
@@ -11,7 +12,7 @@ function scoreClass(score: number): string {
   return "score-ring--low";
 }
 
-export function AnalysisResultCard({ analysis, pdfUrl }: Props) {
+export function AnalysisResultCard({ analysis, pdfUrl, summaryOnly }: Props) {
   return (
     <article className="card card--flat">
       <div className="row-between">
@@ -61,15 +62,19 @@ export function AnalysisResultCard({ analysis, pdfUrl }: Props) {
         </div>
       </div>
 
-      <div className="result-block">
-        <h3>Улучшенное резюме</h3>
-        <div className="result-text">{analysis.improved_resume}</div>
-      </div>
+      {summaryOnly ? null : (
+        <>
+          <div className="result-block">
+            <h3>Улучшенное резюме</h3>
+            <div className="result-text">{analysis.improved_resume}</div>
+          </div>
 
-      <div className="result-block">
-        <h3>Сопроводительное письмо</h3>
-        <div className="result-text">{analysis.cover_letter}</div>
-      </div>
+          <div className="result-block">
+            <h3>Сопроводительное письмо</h3>
+            <div className="result-text">{analysis.cover_letter}</div>
+          </div>
+        </>
+      )}
     </article>
   );
 }

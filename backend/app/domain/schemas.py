@@ -86,6 +86,45 @@ class AnalysisCreateRequest(BaseModel):
     anonymous_id: str | None = None
 
 
+# ── Структурированный документ резюме (для редактора и красивого PDF) ─────────
+class ResumeContacts(BaseModel):
+    email: str = ""
+    phone: str = ""
+    location: str = ""
+    website: str = ""
+
+
+class ResumeExperience(BaseModel):
+    company: str = ""
+    role: str = ""
+    period: str = ""
+    location: str = ""
+    bullets: list[str] = Field(default_factory=list)
+
+
+class ResumeEducation(BaseModel):
+    institution: str = ""
+    degree: str = ""
+    period: str = ""
+
+
+class ResumeDocument(BaseModel):
+    full_name: str = ""
+    headline: str = ""
+    photo: str | None = None  # data URL (base64) — добавляется пользователем
+    contacts: ResumeContacts = Field(default_factory=ResumeContacts)
+    summary: str = ""
+    experience: list[ResumeExperience] = Field(default_factory=list)
+    skills: list[str] = Field(default_factory=list)
+    education: list[ResumeEducation] = Field(default_factory=list)
+    languages: list[str] = Field(default_factory=list)
+
+
+class AnalysisDocumentUpdate(BaseModel):
+    resume_document: ResumeDocument
+    cover_letter: str | None = None
+
+
 class AnalysisResponse(BaseModel):
     id: int | None = None
     score: int
@@ -93,6 +132,7 @@ class AnalysisResponse(BaseModel):
     missing_skills: list[str]
     improved_resume: str
     cover_letter: str
+    resume_document: ResumeDocument | None = None
     created_at: datetime | None = None
 
     model_config = {"from_attributes": True}

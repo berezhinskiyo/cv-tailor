@@ -7,6 +7,7 @@ import { Footer } from "../components/Footer";
 import { Toast } from "../components/Toast";
 import { useToast } from "../hooks/useToast";
 import { AnalysisResultCard } from "../components/AnalysisResultCard";
+import { ResumeEditor } from "../components/ResumeEditor";
 import { Analysis, Resume, Vacancy } from "../types";
 
 export function DashboardPage() {
@@ -191,10 +192,18 @@ export function DashboardPage() {
 
         {latestAnalysis ? (
           <div style={{ margin: "28px 0 16px" }}>
-            <AnalysisResultCard
-              analysis={latestAnalysis}
-              pdfUrl={latestAnalysis.id ? resources.analysisPdfUrl(latestAnalysis.id, token) : undefined}
-            />
+            <AnalysisResultCard analysis={latestAnalysis} summaryOnly />
+            <div style={{ marginTop: 20 }}>
+              <ResumeEditor
+                analysis={latestAnalysis}
+                token={token}
+                notify={showToast}
+                onSaved={(updated) => {
+                  setSelectedAnalysis(updated);
+                  setAnalyses((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
+                }}
+              />
+            </div>
           </div>
         ) : null}
       </section>

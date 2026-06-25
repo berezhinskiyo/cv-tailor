@@ -19,6 +19,7 @@ class AnalysisRepository:
         missing_skills: list[str],
         improved_resume: str,
         cover_letter: str,
+        resume_document: dict | None = None,
     ) -> Analysis:
         analysis = Analysis(
             user_id=user_id,
@@ -29,7 +30,20 @@ class AnalysisRepository:
             missing_skills=missing_skills,
             improved_resume=improved_resume,
             cover_letter=cover_letter,
+            resume_document=resume_document,
         )
+        self.session.add(analysis)
+        self.session.commit()
+        self.session.refresh(analysis)
+        return analysis
+
+    def update_document(
+        self, analysis: Analysis, *, resume_document: dict, cover_letter: str | None, improved_resume: str
+    ) -> Analysis:
+        analysis.resume_document = resume_document
+        analysis.improved_resume = improved_resume
+        if cover_letter is not None:
+            analysis.cover_letter = cover_letter
         self.session.add(analysis)
         self.session.commit()
         self.session.refresh(analysis)
