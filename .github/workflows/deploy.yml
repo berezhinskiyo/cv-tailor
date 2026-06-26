@@ -56,11 +56,15 @@ jobs:
           host: 109.73.197.92
           username: root
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script_stop: true
           command_timeout: 30m
           script: |
             set -euo pipefail
-            cd /root/cv-tailor
+            REPO_URL="https://github.com/berezhinskiyo/cv-tailor.git"
+            APP_DIR="/opt/cv-tailor"
+            if [ ! -d "$APP_DIR/.git" ]; then
+              git clone --branch prod "$REPO_URL" "$APP_DIR"
+            fi
+            cd "$APP_DIR"
             git fetch origin prod
             git checkout prod
             git reset --hard origin/prod
