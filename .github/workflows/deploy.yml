@@ -66,8 +66,7 @@ jobs:
             fi
             cd "$APP_DIR"
             git fetch origin prod
-            git checkout prod
-            git reset --hard origin/prod
+            git reset --hard FETCH_HEAD
             docker compose up --build -d
             docker compose restart nginx
             docker compose ps
