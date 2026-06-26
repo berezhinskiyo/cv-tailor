@@ -219,7 +219,7 @@ def _oauth_config(provider: str) -> dict:
             "auth_url": "https://oauth.yandex.ru/authorize",
             "token_url": "https://oauth.yandex.ru/token",
             "userinfo_url": "https://login.yandex.ru/info?format=json",
-            "scope": "login:email login:info",
+            "scope": "login:email",
         },
         "vk": {
             "client_id": settings.vk_client_id,
