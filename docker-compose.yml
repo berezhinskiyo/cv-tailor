@@ -75,10 +75,29 @@ services:
     depends_on:
       - backend
       - frontend
+    # Наружу больше не публикуем 80 — фронтом владеет Caddy (TLS).
+    # 18080 оставлен для локальной отладки/healthcheck с самого сервера.
     ports:
       - "18080:80"
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
 
+  # Edge-прокси с автоматическим HTTPS (Let's Encrypt). Слушает 80/443,
+  # сам получает и продлевает сертификат, проксирует на внутренний nginx.
+  caddy:
+    image: caddy:2-alpine
+    depends_on:
+      - nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
 volumes:
   postgres_data:
+  caddy_data:
+  caddy_config:

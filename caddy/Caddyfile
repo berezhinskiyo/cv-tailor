@@ -1,0 +1,4 @@
+cvtailor.ru {
+	encode gzip
+	reverse_proxy nginx:80
+}
