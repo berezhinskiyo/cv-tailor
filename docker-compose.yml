@@ -33,13 +33,16 @@ services:
       YANDEX_CLIENT_SECRET: ${YANDEX_CLIENT_SECRET:-}
       VK_CLIENT_ID: ${VK_CLIENT_ID:-}
       VK_CLIENT_SECRET: ${VK_CLIENT_SECRET:-}
-      # SMTP (пусто = код печатается в логи backend)
+      # Email: HTTP-API Postbox (приоритет) -> SMTP -> консоль
+      EMAIL_HTTP_ENDPOINT: ${EMAIL_HTTP_ENDPOINT:-}
+      EMAIL_HTTP_KEY_ID: ${EMAIL_HTTP_KEY_ID:-}
+      EMAIL_HTTP_SECRET: ${EMAIL_HTTP_SECRET:-}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_SSL: ${SMTP_SSL:-false}
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
-      SMTP_FROM: ${SMTP_FROM:-noreply@cv-tailor.local}
+      SMTP_FROM: ${SMTP_FROM:-noreply@cvtailor.ru}
     depends_on:
       - postgres
       - redis
@@ -89,6 +92,11 @@ services:
     depends_on:
       - nginx
     restart: unless-stopped
+    # На этом сервере наследуемый резолвер 1.1.1.1 недоступен
+    # (network is unreachable) → задаём DNS, до которых есть маршрут.
+    dns:
+      - 77.88.8.8
+      - 8.8.8.8
     ports:
       - "80:80"
       - "443:443"

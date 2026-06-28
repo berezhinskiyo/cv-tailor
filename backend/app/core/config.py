@@ -38,13 +38,17 @@ class Settings(BaseSettings):
     vk_client_id: str = ""
     vk_client_secret: str = ""
 
-    # ── Отправка email с кодом (если ничего не задано — код печатается в консоль)
+    # ── Отправка email с кодом
+    #   Приоритет: HTTP-API Postbox (EMAIL_HTTP_*) → SMTP (SMTP_*) → консоль (dev).
+    email_http_endpoint: str = ""   # напр. https://postbox.cloud.yandex.net
+    email_http_key_id: str = ""     # access key id статического ключа сервисного аккаунта
+    email_http_secret: str = ""     # secret этого ключа
     smtp_host: str = ""
     smtp_port: int = 587
     smtp_ssl: bool = False
     smtp_user: str = ""
     smtp_password: str = ""
-    smtp_from: str = "noreply@cv-tailor.local"
+    smtp_from: str = "noreply@cvtailor.ru"
 
 
 @lru_cache

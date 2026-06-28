@@ -1,4 +1,8 @@
-cvtailor.ru {
+# HTTPS на уже выпущенном сертификате (GlobalSign), без ACME.
+# Сертификат лежит в volume caddy_data: /data/certs/server.{crt,key}
+# (приватный ключ — секрет, в git не хранится; кладётся на сервере в volume).
+cvtailor.ru, www.cvtailor.ru {
 	encode gzip
+	tls /data/certs/server.crt /data/certs/server.key
 	reverse_proxy nginx:80
 }
