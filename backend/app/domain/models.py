@@ -110,3 +110,18 @@ class Analysis(Base):
     user: Mapped["User"] = relationship(back_populates="analyses")
     resume: Mapped["Resume"] = relationship(back_populates="analyses")
     vacancy: Mapped["Vacancy"] = relationship(back_populates="analyses")
+
+
+class Payment(Base):
+    __tablename__ = "payments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    amount_kopecks: Mapped[int] = mapped_column(Integer)
+    plan: Mapped[str] = mapped_column(String(32), default="pro")
+    period_months: Mapped[int] = mapped_column(Integer, default=1)
+    # pending / succeeded / canceled
+    status: Mapped[str] = mapped_column(String(32), default="pending")
+    external_payment_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
