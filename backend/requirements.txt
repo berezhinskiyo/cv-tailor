@@ -20,5 +20,5 @@ pytest-asyncio==0.24.0
 httpx==0.27.2
 python-dateutil==2.9.0.post0
 
-# Общий пакет authbilling вендорится внутрь проекта (backend/authbilling/),
-# поэтому отдельной зависимости не нужно — его зависимости перечислены выше.
+# Единый общий пакет аутентификации (git-зависимость, один источник).
+auth-billing-core @ git+https://github.com/berezhinskiyo/auth-billing-core.git@main
