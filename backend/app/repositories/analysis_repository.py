@@ -1,14 +1,14 @@
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.models import Analysis
 
 
 class AnalysisRepository:
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    def create(
+    async def create(
         self,
         *,
         user_id: int | None,
@@ -33,11 +33,11 @@ class AnalysisRepository:
             resume_document=resume_document,
         )
         self.session.add(analysis)
-        self.session.commit()
-        self.session.refresh(analysis)
+        await self.session.commit()
+        await self.session.refresh(analysis)
         return analysis
 
-    def update_document(
+    async def update_document(
         self, analysis: Analysis, *, resume_document: dict, cover_letter: str | None, improved_resume: str
     ) -> Analysis:
         analysis.resume_document = resume_document
@@ -45,13 +45,17 @@ class AnalysisRepository:
         if cover_letter is not None:
             analysis.cover_letter = cover_letter
         self.session.add(analysis)
-        self.session.commit()
-        self.session.refresh(analysis)
+        await self.session.commit()
+        await self.session.refresh(analysis)
         return analysis
 
-    def get_for_user(self, user_id: int, analysis_id: int) -> Analysis | None:
-        return self.session.scalar(select(Analysis).where(Analysis.user_id == user_id, Analysis.id == analysis_id))
+    async def get_for_user(self, user_id: int, analysis_id: int) -> Analysis | None:
+        return await self.session.scalar(
+            select(Analysis).where(Analysis.user_id == user_id, Analysis.id == analysis_id)
+        )
 
-    def list_for_user(self, user_id: int) -> list[Analysis]:
-        return list(self.session.scalars(select(Analysis).where(Analysis.user_id == user_id).order_by(Analysis.created_at.desc())))
-
+    async def list_for_user(self, user_id: int) -> list[Analysis]:
+        result = await self.session.scalars(
+            select(Analysis).where(Analysis.user_id == user_id).order_by(Analysis.created_at.desc())
+        )
+        return list(result)

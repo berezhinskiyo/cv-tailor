@@ -1,62 +1,41 @@
-from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
-from fastapi import Depends, Header, HTTPException, Query, Request, status
-from fastapi.security import OAuth2PasswordBearer
-from jose import JWTError, jwt
-from sqlalchemy.orm import Session
+from authbilling import make_get_current_user
+from authbilling import persist_refresh_token as _persist_refresh_token
+from authbilling.ratelimit import client_ip  # noqa: F401 — реэкспорт для роутеров
+from authbilling.security import decode_user_id
+from fastapi import Header, HTTPException, Query, status
+from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import Depends
 
-from app.core.config import get_settings
 from app.core.db import get_db_session
-from app.core.security import hash_refresh_token, new_refresh_token_plain
 from app.domain.models import RefreshToken, User
 from app.repositories.user_repository import UserRepository
 
-settings = get_settings()
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
+DbSession = Annotated[AsyncSession, Depends(get_db_session)]
 
 
-DbSession = Annotated[Session, Depends(get_db_session)]
-
-
-def persist_refresh_token(db: Session, user_id: int) -> str:
+async def persist_refresh_token(db: AsyncSession, user_id: int) -> str:
     """Создаёт refresh-токен, сохраняет его хеш и возвращает «сырое» значение."""
-    plain = new_refresh_token_plain()
-    expires_at = datetime.now(UTC) + timedelta(days=settings.refresh_token_days)
-    db.add(RefreshToken(user_id=user_id, token_hash=hash_refresh_token(plain), expires_at=expires_at))
-    db.commit()
-    return plain
+    return await _persist_refresh_token(db, RefreshToken, user_id)
 
 
-def client_ip(request: Request) -> str:
-    """Реальный IP клиента за nginx (X-Forwarded-For / X-Real-IP)."""
-    xff = request.headers.get("x-forwarded-for")
-    if xff:
-        return xff.split(",")[0].strip()
-    return request.headers.get("x-real-ip") or (request.client.host if request.client else "unknown")
+# Обязательная авторизация (Bearer) — общая фабрика пакета. cv-tailor: int-идентификаторы.
+get_current_user = make_get_current_user(User, get_db_session, id_cast=int, check_deleted=False)
 
 
-def get_current_user_optional(
+async def get_current_user_optional(
     db: DbSession,
-    token: Annotated[str | None, Depends(oauth2_scheme)],
+    authorization: Annotated[str | None, Header()] = None,
 ) -> User | None:
-    if not token:
+    if not authorization or not authorization.lower().startswith("bearer "):
         return None
-    try:
-        payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
-        user_id = int(payload["sub"])
-    except (JWTError, KeyError, ValueError) as exc:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Невалидный токен.") from exc
-
-    user = UserRepository(db).get_by_id(user_id)
+    user_id = decode_user_id(authorization.split(" ", 1)[1])
+    if user_id is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Невалидный токен.")
+    user = await UserRepository(db).get_by_id(int(user_id))
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Пользователь не найден.")
-    return user
-
-
-def get_current_user(user: Annotated[User | None, Depends(get_current_user_optional)]) -> User:
-    if user is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Требуется авторизация.")
     return user
 
 
@@ -64,18 +43,16 @@ def get_anonymous_id(x_anonymous_id: Annotated[str | None, Header()] = None) -> 
     return x_anonymous_id
 
 
-def get_current_user_from_query(
+async def get_current_user_from_query(
     db: DbSession,
     access_token: Annotated[str | None, Query()] = None,
 ) -> User:
     if not access_token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Требуется авторизация.")
-    try:
-        payload = jwt.decode(access_token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
-        user_id = int(payload["sub"])
-    except (JWTError, KeyError, ValueError) as exc:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Невалидный токен.") from exc
-    user = UserRepository(db).get_by_id(user_id)
+    user_id = decode_user_id(access_token)
+    if user_id is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Невалидный токен.")
+    user = await UserRepository(db).get_by_id(int(user_id))
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Пользователь не найден.")
     return user

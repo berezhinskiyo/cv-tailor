@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.models import User
 from app.domain.schemas import AnalysisCreateRequest, AnalysisResponse
@@ -24,7 +24,7 @@ class AnalysisPayload:
 
 
 class AnalysisService:
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: AsyncSession) -> None:
         self.session = session
         self.resume_repository = ResumeRepository(session)
         self.vacancy_repository = VacancyRepository(session)
@@ -33,8 +33,8 @@ class AnalysisService:
         self.limit_service = LimitService()
         self.generator = OpenAIGenerator()
 
-    def create_analysis(self, request: AnalysisCreateRequest, user: User | None) -> AnalysisResponse:
-        payload = self._build_payload(request, user)
+    async def create_analysis(self, request: AnalysisCreateRequest, user: User | None) -> AnalysisResponse:
+        payload = await self._build_payload(request, user)
         vacancy_skills = extract_skills(payload.vacancy_text)
         resume_skills = extract_skills(payload.resume_text)
         matched_skills = sorted(set(vacancy_skills) & set(resume_skills))
@@ -58,7 +58,7 @@ class AnalysisService:
                 resume_document=generated.document or None,
             )
 
-        stored = self.analysis_repository.create(
+        stored = await self.analysis_repository.create(
             user_id=user.id,
             resume_id=payload.resume_id,
             vacancy_id=payload.vacancy_id,
@@ -69,10 +69,10 @@ class AnalysisService:
             cover_letter=generated.cover_letter,
             resume_document=generated.document or None,
         )
-        self.user_repository.increment_analysis_count(user)
+        await self.user_repository.increment_analysis_count(user)
         return AnalysisResponse.model_validate(stored)
 
-    def _build_payload(self, request: AnalysisCreateRequest, user: User | None) -> AnalysisPayload:
+    async def _build_payload(self, request: AnalysisCreateRequest, user: User | None) -> AnalysisPayload:
         if user is None:
             self.limit_service.assert_anonymous_limit(request.anonymous_id)
             if not request.resume_text:
@@ -90,7 +90,7 @@ class AnalysisService:
         vacancy_id = request.vacancy_id
 
         if resume_id is not None:
-            resume = self.resume_repository.get_for_user(user.id, resume_id)
+            resume = await self.resume_repository.get_for_user(user.id, resume_id)
             if resume is None:
                 raise ValueError("Резюме не найдено.")
             resume_text = resume.original_text
@@ -100,7 +100,7 @@ class AnalysisService:
 
         vacancy_text = request.vacancy_text
         if vacancy_id is not None:
-            vacancy = self.vacancy_repository.get_for_user(user.id, vacancy_id)
+            vacancy = await self.vacancy_repository.get_for_user(user.id, vacancy_id)
             if vacancy is None:
                 raise ValueError("Вакансия не найдена.")
             vacancy_text = vacancy.vacancy_text
@@ -111,4 +111,3 @@ class AnalysisService:
             resume_id=resume_id,
             vacancy_id=vacancy_id,
         )
-

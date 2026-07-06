@@ -16,3 +16,4 @@ coverage.xml
 htmlcov/
 
 .DS_Store
+backend/scripts/test_smtp.py

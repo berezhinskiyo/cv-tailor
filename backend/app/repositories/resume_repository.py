@@ -1,27 +1,31 @@
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.models import Resume
 
 
 class ResumeRepository:
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    def create(self, *, user_id: int, title: str, original_text: str) -> Resume:
+    async def create(self, *, user_id: int, title: str, original_text: str) -> Resume:
         resume = Resume(user_id=user_id, title=title, original_text=original_text)
         self.session.add(resume)
-        self.session.commit()
-        self.session.refresh(resume)
+        await self.session.commit()
+        await self.session.refresh(resume)
         return resume
 
-    def list_for_user(self, user_id: int) -> list[Resume]:
-        return list(self.session.scalars(select(Resume).where(Resume.user_id == user_id).order_by(Resume.created_at.desc())))
+    async def list_for_user(self, user_id: int) -> list[Resume]:
+        result = await self.session.scalars(
+            select(Resume).where(Resume.user_id == user_id).order_by(Resume.created_at.desc())
+        )
+        return list(result)
 
-    def get_for_user(self, user_id: int, resume_id: int) -> Resume | None:
-        return self.session.scalar(select(Resume).where(Resume.user_id == user_id, Resume.id == resume_id))
+    async def get_for_user(self, user_id: int, resume_id: int) -> Resume | None:
+        return await self.session.scalar(
+            select(Resume).where(Resume.user_id == user_id, Resume.id == resume_id)
+        )
 
-    def delete(self, resume: Resume) -> None:
-        self.session.delete(resume)
-        self.session.commit()
-
+    async def delete(self, resume: Resume) -> None:
+        await self.session.delete(resume)
+        await self.session.commit()
