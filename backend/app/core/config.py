@@ -20,6 +20,9 @@ class Settings(AuthBillingSettings):
     consent_version: str = "2026-06-24"
     smtp_from: str = "noreply@cvtailor.ru"
     email_subject: str = "Код подтверждения CV Tailor"
+    # Приложение Яндекс ID настроено только на доступ к email — не просим login:info,
+    # иначе Яндекс вернёт invalid_scope.
+    yandex_scope: str = "login:email"
 
     cors_origins: list[str] = Field(
         default_factory=lambda: [
