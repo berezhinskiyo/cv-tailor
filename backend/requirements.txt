@@ -21,4 +21,6 @@ httpx==0.28.1
 python-dateutil==2.9.0.post0
 
 # Единый общий пакет аутентификации (git-зависимость, один источник).
-auth-billing-core @ git+https://github.com/berezhinskiyo/auth-billing-core.git@main
+# Пин на коммит: детерминированные сборки + инвалидация docker-кэша pip-слоя
+# при апдейте пакета (иначе `up --build` не подтянет новый @main).
+auth-billing-core @ git+https://github.com/berezhinskiyo/auth-billing-core.git@f78c97f
