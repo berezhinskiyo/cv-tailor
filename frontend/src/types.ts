@@ -11,10 +11,21 @@ export type UserMe = {
   display_name: string | null;
   is_admin: boolean;
   subscription_type: string;
+  subscription_until: string | null;
   analysis_count: number;
   consent_at: string | null;
   consent_version: string | null;
   created_at: string;
+};
+
+export type Payment = {
+  id: number;
+  amount_kopecks: number;
+  plan: string;
+  period_months: number;
+  status: string;
+  created_at: string;
+  completed_at: string | null;
 };
 
 export type Resume = {

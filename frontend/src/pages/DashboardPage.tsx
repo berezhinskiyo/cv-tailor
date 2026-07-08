@@ -101,6 +101,7 @@ export function DashboardPage() {
         </Link>
         <div className="nav-links">
           <span className="badge badge-success">{user.subscription_type} · анализов: {user.analysis_count}</span>
+          <Link to="/billing">Тарифы</Link>
           <Link to="/privacy">Конфиденциальность</Link>
           <button type="button" className="btn btn-secondary btn-sm" onClick={() => void logout()}>
             Выйти
@@ -184,9 +185,9 @@ export function DashboardPage() {
             <button className="btn btn-primary" style={{ width: "100%" }} onClick={runAnalysis} disabled={busy}>
               {busy ? "Анализируем..." : "Запустить анализ"}
             </button>
-            <p style={{ fontSize: 13, opacity: 0.8, marginTop: 12 }}>
-              После лимита бесплатных анализов можно подключить подписку без изменения структуры кабинета.
-            </p>
+            <Link to="/billing" className="btn btn-secondary" style={{ marginTop: 12, width: "100%" }}>
+              {user.subscription_type === "free" ? "Подключить PRO" : "Управление подпиской"}
+            </Link>
           </article>
         </div>
 

@@ -1,5 +1,5 @@
 import { API_URL, api, publicApi } from "./client";
-import { Analysis, Resume, ResumeDocument, Vacancy } from "../types";
+import { Analysis, Payment, Resume, ResumeDocument, Vacancy } from "../types";
 
 export const resources = {
   listResumes: (token: string) => api<Resume[]>("/resumes", {}, token),
@@ -28,6 +28,15 @@ export const resources = {
       { method: "PUT", body: JSON.stringify({ resume_document, cover_letter }) },
       token
     ),
+
+  // Оплата PRO-подписки (Т-Банк). Возвращает ссылку на платёжную форму.
+  createPayment: (token: string, periodMonths = 1) =>
+    api<{ confirmation_url: string; payment_id: number }>(
+      "/payments",
+      { method: "POST", body: JSON.stringify({ period_months: periodMonths }) },
+      token
+    ),
+  paymentHistory: (token: string) => api<Payment[]>("/payments", {}, token),
 
   // Демо-анализ без авторизации (анонимный лимит на бэкенде).
   demoAnalysis: (payload: Record<string, unknown>, anonymousId: string) =>

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from datetime import UTC, datetime
 
 from redis import Redis
 from redis.exceptions import RedisError
@@ -26,11 +27,30 @@ class LimitService:
         if usage > settings.free_anonymous_analysis_limit:
             raise PermissionError("Требуется подписка.")
 
-    def assert_user_limit(self, analysis_count: int, subscription_type: str) -> None:
-        if subscription_type != "free":
+    def assert_user_limit(
+        self,
+        analysis_count: int,
+        subscription_type: str,
+        subscription_until: datetime | None = None,
+    ) -> None:
+        if self._is_pro_active(subscription_type, subscription_until):
             return
         if analysis_count >= settings.free_user_analysis_limit:
             raise PermissionError("Требуется подписка.")
+
+    @staticmethod
+    def _is_pro_active(subscription_type: str, subscription_until: datetime | None) -> bool:
+        """PRO активен, если тариф платный и срок не истёк.
+
+        subscription_until=None трактуем как бессрочный (совместимость со старыми
+        записями, где даты ещё не было)."""
+        if subscription_type == "free":
+            return False
+        if subscription_until is None:
+            return True
+        if subscription_until.tzinfo is None:
+            subscription_until = subscription_until.replace(tzinfo=UTC)
+        return subscription_until > datetime.now(UTC)
 
     def _increment_and_get(self, key: str) -> int:
         if self.redis is not None:

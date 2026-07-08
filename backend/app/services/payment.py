@@ -1,7 +1,7 @@
 """Оплата подписки PRO через Т-Банк. Логика подписи/Init — в auth-billing-core."""
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from authbilling import tinkoff
@@ -71,6 +71,14 @@ async def handle_success(db: AsyncSession, payload: dict) -> None:
 
     user = await db.scalar(select(User).where(User.id == payment.user_id))
     if user is not None:
+        now = datetime.now(UTC)
+        current = user.subscription_until
+        if current is not None and current.tzinfo is None:
+            current = current.replace(tzinfo=UTC)
+        # Продление стэкается: если подписка ещё активна — считаем от её конца.
+        base = current if (current is not None and current > now) else now
         user.subscription_type = "pro"
+        # Месяц PRO = 30 дней (достаточно для MVP).
+        user.subscription_until = base + timedelta(days=30 * payment.period_months)
         user.analysis_count = 0  # новый оплаченный период — сбрасываем счётчик
     await db.commit()

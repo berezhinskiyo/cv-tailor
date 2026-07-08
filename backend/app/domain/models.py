@@ -21,6 +21,8 @@ class User(Base):
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     email_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     subscription_type: Mapped[str] = mapped_column(String(50), default="free")
+    # Дата окончания платной подписки (UTC). None = бессрочно/не задано.
+    subscription_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     analysis_count: Mapped[int] = mapped_column(Integer, default=0)
     consent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     consent_version: Mapped[str | None] = mapped_column(String(32), nullable=True)

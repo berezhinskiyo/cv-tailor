@@ -84,7 +84,9 @@ class AnalysisService:
                 vacancy_id=None,
             )
 
-        self.limit_service.assert_user_limit(user.analysis_count, user.subscription_type)
+        self.limit_service.assert_user_limit(
+            user.analysis_count, user.subscription_type, user.subscription_until
+        )
         resume_text = request.resume_text
         resume_id = request.resume_id
         vacancy_id = request.vacancy_id

@@ -42,10 +42,23 @@ class UserResponse(BaseModel):
     display_name: str | None = None
     is_admin: bool = False
     subscription_type: str
+    subscription_until: datetime | None = None
     analysis_count: int
     consent_at: datetime | None
     consent_version: str | None
     created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class PaymentResponse(BaseModel):
+    id: int
+    amount_kopecks: int
+    plan: str
+    period_months: int
+    status: str
+    created_at: datetime
+    completed_at: datetime | None = None
 
     model_config = {"from_attributes": True}
 
