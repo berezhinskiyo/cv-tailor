@@ -1,5 +1,11 @@
 name: Deploy
 
+# Каскад окружений (main → test → prod), два независимых стека на одном сервере:
+#   push main  → синхронизируем ветку test (запускает деплой TEST)
+#   push test  → деплой TEST-окружения (cvtailor.test.vniknu.ru) + промоушен в prod
+#   push prod  → деплой PROD-окружения (cvtailor.vniknu.ru)
+# TLS/домены обслуживает ОБЩИЙ обратный прокси сервера; стек отдаёт nginx на loopback-порт.
+
 on:
   push:
     branches:
@@ -14,7 +20,12 @@ concurrency:
   group: deploy-${{ github.ref }}
   cancel-in-progress: false
 
+env:
+  SSH_HOST: "5.35.103.48"
+  REPO_URL: "https://github.com/berezhinskiyo/cv-tailor.git"
+
 jobs:
+  # ── main → test ────────────────────────────────────────────────────────────
   sync-test:
     name: main → test
     if: github.ref == 'refs/heads/main'
@@ -23,50 +34,87 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
       - name: Update test from main
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git push origin main:test --force
 
+  # ── деплой TEST-окружения ──────────────────────────────────────────────────
+  deploy-test:
+    name: Deploy TEST (cvtailor.test.vniknu.ru)
+    if: github.ref == 'refs/heads/test'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ env.SSH_HOST }}
+          username: root
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          command_timeout: 30m
+          script: |
+            set -euo pipefail
+            APP_DIR="/opt/cvtailor-test"
+            BRANCH="test"
+            if [ ! -d "$APP_DIR/.git" ]; then
+              git clone --branch "$BRANCH" "${{ env.REPO_URL }}" "$APP_DIR"
+            fi
+            cd "$APP_DIR"
+            git fetch origin "$BRANCH"
+            git reset --hard "origin/$BRANCH"
+            if [ ! -f .env ]; then
+              echo "ERROR: $APP_DIR/.env отсутствует — положите .env окружения (см. deploy/env.test.example)"; exit 1
+            fi
+            # --no-cache backend: иначе pip возьмёт authbilling из слоя-кэша
+            docker compose build --no-cache backend
+            docker compose up --build -d
+            docker compose ps
+
+  # ── test → prod (промоушен) ────────────────────────────────────────────────
   sync-prod:
     name: test → prod
-    if: github.ref == 'refs/heads/test'
+    # Предохранитель: промоушен в prod идёт только когда включён флаг
+    # (repo variable DEPLOY_PROD_ENABLED=true). Пока OFF — деплоится только test.
+    if: github.ref == 'refs/heads/test' && vars.DEPLOY_PROD_ENABLED == 'true'
+    needs: deploy-test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
       - name: Update prod from test
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git push origin test:prod --force
 
-  deploy:
-    name: Deploy to production
-    if: github.ref == 'refs/heads/prod'
+  # ── деплой PROD-окружения ──────────────────────────────────────────────────
+  deploy-prod:
+    name: Deploy PROD (cvtailor.vniknu.ru)
+    if: github.ref == 'refs/heads/prod' && vars.DEPLOY_PROD_ENABLED == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.2.2
         with:
-          host: 109.73.197.92
+          host: ${{ env.SSH_HOST }}
           username: root
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           command_timeout: 30m
           script: |
             set -euo pipefail
-            REPO_URL="https://github.com/berezhinskiyo/cv-tailor.git"
-            APP_DIR="/opt/cv-tailor"
+            APP_DIR="/opt/cvtailor-prod"
+            BRANCH="prod"
             if [ ! -d "$APP_DIR/.git" ]; then
-              git clone --branch prod "$REPO_URL" "$APP_DIR"
+              git clone --branch "$BRANCH" "${{ env.REPO_URL }}" "$APP_DIR"
             fi
             cd "$APP_DIR"
-            git fetch origin prod
-            git reset --hard FETCH_HEAD
+            git fetch origin "$BRANCH"
+            git reset --hard "origin/$BRANCH"
+            if [ ! -f .env ]; then
+              echo "ERROR: $APP_DIR/.env отсутствует — положите .env окружения (см. deploy/env.prod.example)"; exit 1
+            fi
+            docker compose build --no-cache backend
             docker compose up --build -d
-            docker compose restart nginx
             docker compose ps
