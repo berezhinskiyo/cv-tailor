@@ -21,29 +21,25 @@ push prod  → деплой PROD          (при DEPLOY_PROD_ENABLED=true)
 - Секрет репозитория **`SSH_PRIVATE_KEY`** — вход на сервер.
 - Repo-переменная **`DEPLOY_PROD_ENABLED`**: пока не `true`, любой push катит **только TEST**.
 
-## Общая инфраструктура сервера (один раз, файлы — в репозитории ReviewLens/deploy)
+## Общая инфраструктура сервера (общий PostgreSQL + edge-Caddy)
 
-- **`shared-postgres`** — единый PostgreSQL (`/opt/shared-postgres`), создаёт сеть `shared`
-  и базы `cvtailor_{prod,test}` / `reviewlens_{prod,test}`.
-- **`edge`** — единый Caddy (`/opt/edge`), 80/443 + TLS, роутит все 4 домена на loopback-порты.
+Поднимаются один раз ручным запуском workflow в репозитории **ReviewLens**
+(Actions → Deploy → Run workflow → галочка bootstrap): останавливает старые стеки,
+поднимает `/opt/shared-postgres` (сеть `shared`, базы `cvtailor_{prod,test}` /
+`reviewlens_{prod,test}`) и `/opt/edge` (80/443 + TLS на 4 домена). Отдельного действия
+для cv-tailor тут не нужно.
 
-Поднимаются до первого деплоя (см. `ReviewLens/deploy/README.md`, шаги 0–1).
+## Секреты cv-tailor — всё в GitHub
 
-## Бутстрап cv-tailor-окружений
+Полный список констант — в **`GITHUB_SECRETS.md`**. Кратко:
+- Repo secret `SSH_PRIVATE_KEY`, repo variable `DEPLOY_PROD_ENABLED` (пока не задавать).
+- Environments `test` и `prod`, в каждом секрет `DOTENV` с полным .env окружения
+  (WEB_PORT, DB_USER/DB_NAME/DB_PASSWORD, JWT, OAuth, Т-Банк и т.д.).
+- `DB_PASSWORD` окружения = пароль роли в общем PostgreSQL
+  (`CVTAILOR_TEST_DB_PASSWORD` / `CVTAILOR_PROD_DB_PASSWORD` в `SHARED_POSTGRES_DOTENV`).
 
-1. **`.env` каждого окружения** (в git нет, деплой не трогает):
-   ```bash
-   mkdir -p /opt/cvtailor-test /opt/cvtailor-prod
-   nano /opt/cvtailor-test/.env     # deploy/env.test.example: WEB_PORT=28080, DB_*=cvtailor_test, ДЕМО-креды Т-Банка
-   nano /opt/cvtailor-prod/.env     # deploy/env.prod.example: WEB_PORT=18080, DB_*=cvtailor_prod, БОЕВЫЕ креды Т-Банка
-   ```
-   `DB_PASSWORD` окружения должен совпадать с соответствующим паролем в
-   `/opt/shared-postgres/.env` (`CVTAILOR_TEST_DB_PASSWORD` / `CVTAILOR_PROD_DB_PASSWORD`).
-   Разные `JWT_SECRET_KEY` для test и prod.
-
-2. **OAuth**: redirect URI обоих доменов добавить в приложениях Яндекс/VK.
-
-3. Первый деплой — пуш в ветку (каталог создаётся `git clone`, но `.env` должен уже лежать).
+OAuth: redirect URI обоих доменов добавить в приложениях Яндекс/VK.
+Деплой — пуш в ветку; `.env` пишется на сервер из секрета `DOTENV` автоматически.
 
 ## Важно
 - **Изоляция**: у test и prod разные `COMPOSE_PROJECT_NAME` (сети/контейнеры) и разные

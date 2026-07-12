@@ -1,10 +1,11 @@
 name: Deploy
 
-# Каскад окружений (main → test → prod), два независимых стека на одном сервере:
-#   push main  → синхронизируем ветку test (запускает деплой TEST)
-#   push test  → деплой TEST-окружения (cvtailor.test.vniknu.ru) + промоушен в prod
-#   push prod  → деплой PROD-окружения (cvtailor.vniknu.ru)
-# TLS/домены обслуживает ОБЩИЙ обратный прокси сервера; стек отдаёт nginx на loopback-порт.
+# Каскад окружений (main → test → prod), два стека на общем сервере за edge-Caddy
+# и общим PostgreSQL. Секреты — в GitHub: каждый Environment (test/prod) хранит
+# секрет DOTENV с полным .env окружения; деплой пишет его на сервер (git .env не хранит).
+#   push main → синхронизируем test (→ деплой TEST)
+#   push test → деплой TEST + (при DEPLOY_PROD_ENABLED=true) промоушен в prod
+#   push prod → деплой PROD  (при DEPLOY_PROD_ENABLED=true)
 
 on:
   push:
@@ -25,7 +26,6 @@ env:
   REPO_URL: "https://github.com/berezhinskiyo/cv-tailor.git"
 
 jobs:
-  # ── main → test ────────────────────────────────────────────────────────────
   sync-test:
     name: main → test
     if: github.ref == 'refs/heads/main'
@@ -40,18 +40,30 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git push origin main:test --force
 
-  # ── деплой TEST-окружения ──────────────────────────────────────────────────
   deploy-test:
     name: Deploy TEST (cvtailor.test.vniknu.ru)
     if: github.ref == 'refs/heads/test'
     runs-on: ubuntu-latest
+    environment: test
     steps:
+      - name: Encode env (base64, masked)
+        id: enc
+        env:
+          DOTENV: ${{ secrets.DOTENV }}
+        run: |
+          if [ -z "$DOTENV" ]; then echo "секрет DOTENV пуст в Environment 'test'"; exit 1; fi
+          B64=$(printf '%s' "$DOTENV" | base64 -w0)
+          echo "::add-mask::$B64"
+          echo "b64=$B64" >> "$GITHUB_OUTPUT"
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.2.2
+        env:
+          DOTENV_B64: ${{ steps.enc.outputs.b64 }}
         with:
           host: ${{ env.SSH_HOST }}
           username: root
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          envs: DOTENV_B64
           command_timeout: 30m
           script: |
             set -euo pipefail
@@ -63,19 +75,14 @@ jobs:
             cd "$APP_DIR"
             git fetch origin "$BRANCH"
             git reset --hard "origin/$BRANCH"
-            if [ ! -f .env ]; then
-              echo "ERROR: $APP_DIR/.env отсутствует — положите .env окружения (см. deploy/env.test.example)"; exit 1
-            fi
-            # --no-cache backend: иначе pip возьмёт authbilling из слоя-кэша
+            umask 077
+            printf '%s' "$DOTENV_B64" | base64 -d > "$APP_DIR/.env"
             docker compose build --no-cache backend
             docker compose up --build -d
             docker compose ps
 
-  # ── test → prod (промоушен) ────────────────────────────────────────────────
   sync-prod:
     name: test → prod
-    # Предохранитель: промоушен в prod идёт только когда включён флаг
-    # (repo variable DEPLOY_PROD_ENABLED=true). Пока OFF — деплоится только test.
     if: github.ref == 'refs/heads/test' && vars.DEPLOY_PROD_ENABLED == 'true'
     needs: deploy-test
     runs-on: ubuntu-latest
@@ -89,18 +96,30 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git push origin test:prod --force
 
-  # ── деплой PROD-окружения ──────────────────────────────────────────────────
   deploy-prod:
     name: Deploy PROD (cvtailor.vniknu.ru)
     if: github.ref == 'refs/heads/prod' && vars.DEPLOY_PROD_ENABLED == 'true'
     runs-on: ubuntu-latest
+    environment: prod
     steps:
+      - name: Encode env (base64, masked)
+        id: enc
+        env:
+          DOTENV: ${{ secrets.DOTENV }}
+        run: |
+          if [ -z "$DOTENV" ]; then echo "секрет DOTENV пуст в Environment 'prod'"; exit 1; fi
+          B64=$(printf '%s' "$DOTENV" | base64 -w0)
+          echo "::add-mask::$B64"
+          echo "b64=$B64" >> "$GITHUB_OUTPUT"
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.2.2
+        env:
+          DOTENV_B64: ${{ steps.enc.outputs.b64 }}
         with:
           host: ${{ env.SSH_HOST }}
           username: root
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          envs: DOTENV_B64
           command_timeout: 30m
           script: |
             set -euo pipefail
@@ -112,9 +131,8 @@ jobs:
             cd "$APP_DIR"
             git fetch origin "$BRANCH"
             git reset --hard "origin/$BRANCH"
-            if [ ! -f .env ]; then
-              echo "ERROR: $APP_DIR/.env отсутствует — положите .env окружения (см. deploy/env.prod.example)"; exit 1
-            fi
+            umask 077
+            printf '%s' "$DOTENV_B64" | base64 -d > "$APP_DIR/.env"
             docker compose build --no-cache backend
             docker compose up --build -d
             docker compose ps
