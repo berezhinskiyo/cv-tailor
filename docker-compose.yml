@@ -1,28 +1,20 @@
 services:
-  postgres:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_DB: cv_tailor
-      POSTGRES_USER: cv_tailor
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cv_tailor}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    restart: unless-stopped
-
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    networks: [default]
 
   backend:
     build:
       context: ./backend
     environment:
-      DATABASE_URL: postgresql+psycopg://cv_tailor:${POSTGRES_PASSWORD:-cv_tailor}@postgres:5432/cv_tailor
+      # Общий PostgreSQL сервера (стек shared-postgres, сеть `shared`)
+      DATABASE_URL: postgresql+psycopg://${DB_USER:-cvtailor}:${DB_PASSWORD:-cvtailor}@shared-postgres:5432/${DB_NAME:-cvtailor}
       REDIS_URL: redis://redis:6379/0
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-super-secret-key}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      # Внешние URL (через общий прокси) — для OAuth redirect и возврата во фронт
+      # Внешние URL (через общий edge) — для OAuth redirect и возврата во фронт
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:18080}
       BACKEND_URL: ${BACKEND_URL:-http://localhost:18080}
       # согласие / админ
@@ -52,8 +44,8 @@ services:
       TINKOFF_TAXATION: ${TINKOFF_TAXATION:-usn_income}
       TINKOFF_VAT: ${TINKOFF_VAT:-none}
     depends_on:
-      - postgres
       - redis
+    networks: [default, shared]
     restart: unless-stopped
 
   worker:
@@ -61,14 +53,14 @@ services:
       context: ./backend
     command: celery -A app.infrastructure.tasks.celery_app worker --loglevel=info
     environment:
-      DATABASE_URL: postgresql+psycopg://cv_tailor:${POSTGRES_PASSWORD:-cv_tailor}@postgres:5432/cv_tailor
+      DATABASE_URL: postgresql+psycopg://${DB_USER:-cvtailor}:${DB_PASSWORD:-cvtailor}@shared-postgres:5432/${DB_NAME:-cvtailor}
       REDIS_URL: redis://redis:6379/0
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-super-secret-key}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
     depends_on:
-      - postgres
       - redis
+    networks: [default, shared]
     restart: unless-stopped
 
   frontend:
@@ -79,11 +71,11 @@ services:
         VITE_SMARTCAPTCHA_SITEKEY: ${VITE_SMARTCAPTCHA_SITEKEY:-}
     depends_on:
       - backend
+    networks: [default]
     restart: unless-stopped
 
-  # TLS терминируется ОБЩИМ обратным прокси сервера (владеет 80/443).
-  # nginx этого стека слушает только на loopback-порту WEB_PORT, а общий
-  # прокси проксирует домен окружения на 127.0.0.1:${WEB_PORT}.
+  # TLS терминируется ОБЩИМ edge-Caddy сервера. nginx стека слушает только на
+  # loopback-порту WEB_PORT; edge проксирует домен окружения на 127.0.0.1:${WEB_PORT}.
   nginx:
     image: nginx:1.27-alpine
     depends_on:
@@ -93,7 +85,12 @@ services:
       - "127.0.0.1:${WEB_PORT:-18080}:80"
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    networks: [default]
     restart: unless-stopped
 
-volumes:
-  postgres_data:
+networks:
+  default:
+  # Общая сеть сервера с единым PostgreSQL (создаётся стеком shared-postgres)
+  shared:
+    external: true
+    name: shared

@@ -1,111 +1,53 @@
-# Деплой cv-tailor — два окружения на одном сервере
+# Деплой cv-tailor — два окружения на общем сервере
 
-Сервер: `root@5.35.103.48`. TLS и домены обслуживает **общий обратный прокси**
-сервера (владеет портами 80/443). Каждое окружение — отдельный docker-compose стек,
-который отдаёт свой nginx на loopback-порт; общий прокси проксирует домен на этот порт.
+Сервер: `root@5.35.103.48`. На нём живут 4 стека (cvtailor + reviewlens, test/prod)
+за **единым edge-Caddy** (владеет 80/443, авто-TLS Let's Encrypt) и с **единым
+PostgreSQL** (общий инстанс, у каждого окружения своя база). Стек cv-tailor отдаёт
+nginx на loopback-порт, edge проксирует домен на этот порт.
 
-| Окружение | Ветка  | Домен                       | Каталог             | Loopback-порт |
-|-----------|--------|-----------------------------|---------------------|---------------|
-| test      | `test` | `cvtailor.test.vniknu.ru`   | `/opt/cvtailor-test`| `127.0.0.1:28080` |
-| prod      | `prod` | `cvtailor.vniknu.ru`        | `/opt/cvtailor-prod`| `127.0.0.1:18080` |
+| Окружение | Ветка  | Домен                       | Каталог             | Loopback-порт | База в общем PG |
+|-----------|--------|-----------------------------|---------------------|---------------|-----------------|
+| test      | `test` | `cvtailor.test.vniknu.ru`   | `/opt/cvtailor-test`| `127.0.0.1:28080` | `cvtailor_test` |
+| prod      | `prod` | `cvtailor.vniknu.ru`        | `/opt/cvtailor-prod`| `127.0.0.1:18080` | `cvtailor_prod` |
 
-## Каскад релизов (GitHub Actions, `.github/workflows/deploy.yml`)
+## Каскад релизов (`.github/workflows/deploy.yml`)
 
 ```
-push main  → force-push в test  ─┐
-push test  → деплой TEST         ─┴→ force-push в prod
-push prod  → деплой PROD
+push main  → force-push в test  (→ деплой TEST)
+push test  → деплой TEST         → (при DEPLOY_PROD_ENABLED=true) force-push в prod
+push prod  → деплой PROD          (при DEPLOY_PROD_ENABLED=true)
 ```
 
-Требуется секрет репозитория **`SSH_PRIVATE_KEY`** (приватный ключ, чья публичная
-часть лежит в `~/.ssh/authorized_keys` на 5.35.103.48).
+- Секрет репозитория **`SSH_PRIVATE_KEY`** — вход на сервер.
+- Repo-переменная **`DEPLOY_PROD_ENABLED`**: пока не `true`, любой push катит **только TEST**.
 
-**Предохранитель прода.** Промоушен `test → prod` и деплой PROD выполняются только
-при включённой repo-переменной **`DEPLOY_PROD_ENABLED=true`**
-(Settings → Secrets and variables → Actions → Variables). Пока флаг не выставлен,
-любой push катит **только TEST** — прод не трогается. Это позволяет сперва обкатать
-`cvtailor.test.vniknu.ru`, а прод включить осознанно, когда `/opt/cvtailor-prod/.env`
-и домен `cvtailor.vniknu.ru` в прокси готовы.
+## Общая инфраструктура сервера (один раз, файлы — в репозитории ReviewLens/deploy)
 
-## Разовый бутстрап сервера (делается вручную один раз)
+- **`shared-postgres`** — единый PostgreSQL (`/opt/shared-postgres`), создаёт сеть `shared`
+  и базы `cvtailor_{prod,test}` / `reviewlens_{prod,test}`.
+- **`edge`** — единый Caddy (`/opt/edge`), 80/443 + TLS, роутит все 4 домена на loopback-порты.
 
-1. **Docker + compose-плагин** должны быть установлены на сервере.
+Поднимаются до первого деплоя (см. `ReviewLens/deploy/README.md`, шаги 0–1).
 
-2. **`.env` каждого окружения** (в git их нет, деплой их не трогает):
+## Бутстрап cv-tailor-окружений
 
+1. **`.env` каждого окружения** (в git нет, деплой не трогает):
    ```bash
    mkdir -p /opt/cvtailor-test /opt/cvtailor-prod
-   # заполнить значениями (шаблоны — deploy/env.test.example / env.prod.example):
-   nano /opt/cvtailor-test/.env     # WEB_PORT=28080, домен test, ДЕМО-креды Т-Банка
-   nano /opt/cvtailor-prod/.env     # WEB_PORT=18080, домен prod, БОЕВЫЕ креды Т-Банка
+   nano /opt/cvtailor-test/.env     # deploy/env.test.example: WEB_PORT=28080, DB_*=cvtailor_test, ДЕМО-креды Т-Банка
+   nano /opt/cvtailor-prod/.env     # deploy/env.prod.example: WEB_PORT=18080, DB_*=cvtailor_prod, БОЕВЫЕ креды Т-Банка
    ```
-   Обязательно задать разные `POSTGRES_PASSWORD` и `JWT_SECRET_KEY` для test и prod.
+   `DB_PASSWORD` окружения должен совпадать с соответствующим паролем в
+   `/opt/shared-postgres/.env` (`CVTAILOR_TEST_DB_PASSWORD` / `CVTAILOR_PROD_DB_PASSWORD`).
+   Разные `JWT_SECRET_KEY` для test и prod.
 
-3. **Прописать два домена в общий прокси** (см. ниже) и перезагрузить прокси.
+2. **OAuth**: redirect URI обоих доменов добавить в приложениях Яндекс/VK.
 
-4. Первый деплой — пуш в соответствующую ветку (или запуск workflow вручную).
-   Каталог `/opt/cvtailor-*` создаётся автоматически (`git clone`), но `.env`
-   должен уже лежать — иначе деплой упадёт с понятной ошибкой.
-
-## Vhost для общего прокси
-
-### Вариант A — общий прокси на Caddy
-Добавить в общий `Caddyfile`:
-
-```caddy
-cvtailor.vniknu.ru {
-	encode gzip
-	reverse_proxy 127.0.0.1:18080
-}
-
-cvtailor.test.vniknu.ru {
-	encode gzip
-	reverse_proxy 127.0.0.1:28080
-}
-```
-Caddy сам выпустит и продлит сертификаты Let's Encrypt (DNS уже указывает на сервер).
-Перезагрузка: `caddy reload` (или `docker exec <caddy> caddy reload ...`).
-
-### Вариант B — общий прокси на nginx
-Выпустить сертификаты (`certbot certonly` для обоих доменов) и добавить server-блоки:
-
-```nginx
-server {
-    listen 80;
-    server_name cvtailor.vniknu.ru cvtailor.test.vniknu.ru;
-    return 301 https://$host$request_uri;
-}
-server {
-    listen 443 ssl;
-    server_name cvtailor.vniknu.ru;
-    ssl_certificate     /etc/letsencrypt/live/cvtailor.vniknu.ru/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/cvtailor.vniknu.ru/privkey.pem;
-    location / {
-        proxy_pass http://127.0.0.1:18080;
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-server {
-    listen 443 ssl;
-    server_name cvtailor.test.vniknu.ru;
-    ssl_certificate     /etc/letsencrypt/live/cvtailor.test.vniknu.ru/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/cvtailor.test.vniknu.ru/privkey.pem;
-    location / {
-        proxy_pass http://127.0.0.1:28080;
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-```
-Перезагрузка: `nginx -t && nginx -s reload`.
+3. Первый деплой — пуш в ветку (каталог создаётся `git clone`, но `.env` должен уже лежать).
 
 ## Важно
-- **OAuth**: redirect URI обоих доменов нужно добавить в приложениях Яндекс/VK,
-  иначе вход через OAuth вернёт ошибку.
-- **Изоляция БД**: у test и prod разные `COMPOSE_PROJECT_NAME` → разные volume/сети,
-  данные не пересекаются.
+- **Изоляция**: у test и prod разные `COMPOSE_PROJECT_NAME` (сети/контейнеры) и разные
+  базы+роли в общем PG (test не видит prod). Redis у каждого стека свой.
 - **Миграции** применяются автоматически при старте backend (`alembic upgrade head`
   в `Dockerfile CMD`).
+- Стек требует внешнюю сеть `shared` — сначала должен быть поднят `shared-postgres`.
