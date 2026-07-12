@@ -24,7 +24,13 @@ class AiGenerationResult:
 
 class OpenAIGenerator:
     def __init__(self) -> None:
-        self.client = OpenAI(api_key=settings.openai_api_key) if settings.openai_api_key else None
+        if settings.openai_api_key:
+            kwargs: dict = {"api_key": settings.openai_api_key}
+            if settings.openai_base_url:
+                kwargs["base_url"] = settings.openai_base_url
+            self.client = OpenAI(**kwargs)
+        else:
+            self.client = None
 
     def generate(
         self,

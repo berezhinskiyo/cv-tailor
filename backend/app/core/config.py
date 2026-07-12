@@ -12,6 +12,9 @@ class Settings(AuthBillingSettings):
     database_url: str = "sqlite+aiosqlite:///./cv_tailor.db"
     jwt_secret_key: str = "change-me"
     openai_api_key: str | None = None
+    # Базовый URL OpenAI-совместимого API (OpenRouter, polza.ai и т.п.).
+    # Пусто = дефолт официального OpenAI.
+    openai_base_url: str | None = None
     openai_model: str = "gpt-4o-mini"
     free_user_analysis_limit: int = 3
     free_anonymous_analysis_limit: int = 1

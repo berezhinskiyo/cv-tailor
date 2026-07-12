@@ -14,6 +14,7 @@ services:
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-super-secret-key}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
       # Внешние URL (через общий edge) — для OAuth redirect и возврата во фронт
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:18080}
       BACKEND_URL: ${BACKEND_URL:-http://localhost:18080}
@@ -58,6 +59,7 @@ services:
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-super-secret-key}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
     depends_on:
       - redis
     networks: [default, shared]
