@@ -1,18 +1,18 @@
 name: Deploy
 
-# Каскад окружений (main → test → prod), два стека на общем сервере за edge-Caddy
-# и общим PostgreSQL. Секреты — в GitHub: каждый Environment (test/prod) хранит
-# секрет DOTENV с полным .env окружения; деплой пишет его на сервер (git .env не хранит).
-#   push main → синхронизируем test (→ деплой TEST)
-#   push test → деплой TEST + (при DEPLOY_PROD_ENABLED=true) промоушен в prod
-#   push prod → деплой PROD  (при DEPLOY_PROD_ENABLED=true)
+# Каскад main → test → prod ОДНИМ запуском (push в main).
+# Важно: push, сделанный GITHUB_TOKEN из Actions, НЕ триггерит новые workflow
+# (защита GitHub от рекурсии). Поэтому этапы связаны через needs внутри одного run,
+# а не через триггеры на push в ветки test/prod.
+#   sync-test   — обновляет ветку test из main
+#   deploy-test — катит TEST (cvtailor.test.vniknu.ru)
+#   sync-prod   — обновляет ветку prod из test   (при DEPLOY_PROD_ENABLED=true)
+#   deploy-prod — катит PROD (cvtailor.vniknu.ru) (при DEPLOY_PROD_ENABLED=true)
 
 on:
   push:
     branches:
       - main
-      - test
-      - prod
 
 permissions:
   contents: write
@@ -28,7 +28,6 @@ env:
 jobs:
   sync-test:
     name: main → test
-    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -42,7 +41,7 @@ jobs:
 
   deploy-test:
     name: Deploy TEST (cvtailor.test.vniknu.ru)
-    if: github.ref == 'refs/heads/test'
+    needs: sync-test
     runs-on: ubuntu-latest
     environment: test
     steps:
@@ -83,8 +82,8 @@ jobs:
 
   sync-prod:
     name: test → prod
-    if: github.ref == 'refs/heads/test' && vars.DEPLOY_PROD_ENABLED == 'true'
     needs: deploy-test
+    if: vars.DEPLOY_PROD_ENABLED == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -94,11 +93,13 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git push origin test:prod --force
+          git fetch origin test
+          git push origin origin/test:refs/heads/prod --force
 
   deploy-prod:
     name: Deploy PROD (cvtailor.vniknu.ru)
-    if: github.ref == 'refs/heads/prod' && vars.DEPLOY_PROD_ENABLED == 'true'
+    needs: sync-prod
+    if: vars.DEPLOY_PROD_ENABLED == 'true'
     runs-on: ubuntu-latest
     environment: prod
     steps:
