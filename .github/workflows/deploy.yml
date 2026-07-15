@@ -78,6 +78,9 @@ jobs:
             printf '%s' "$DOTENV_B64" | base64 -d > "$APP_DIR/.env"
             docker compose build --no-cache backend
             docker compose up --build -d
+            # nginx резолвит апстримы (backend/frontend) один раз при старте.
+            # После пересоздания они получают новые IP → без рестарта nginx отдаёт 502.
+            docker compose restart nginx
             docker compose ps
 
   sync-prod:
@@ -136,4 +139,7 @@ jobs:
             printf '%s' "$DOTENV_B64" | base64 -d > "$APP_DIR/.env"
             docker compose build --no-cache backend
             docker compose up --build -d
+            # nginx резолвит апстримы (backend/frontend) один раз при старте.
+            # После пересоздания они получают новые IP → без рестарта nginx отдаёт 502.
+            docker compose restart nginx
             docker compose ps
