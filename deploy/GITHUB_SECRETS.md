@@ -7,7 +7,7 @@
 ## 1. Repository secrets
 | Имя | Значение |
 |-----|----------|
-| `SSH_PRIVATE_KEY` | приватный SSH-ключ для `root@5.35.103.48` (публичная часть — в authorized_keys сервера) |
+| `SSH_PRIVATE_KEY` | приватный SSH-ключ для `root@109.73.197.92` (публичная часть — в authorized_keys сервера) |
 
 ## 2. Repository variables
 | Имя | Значение |

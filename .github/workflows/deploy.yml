@@ -22,7 +22,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SSH_HOST: "5.35.103.48"
+  SSH_HOST: "109.73.197.92"
   REPO_URL: "https://github.com/berezhinskiyo/cv-tailor.git"
 
 jobs:

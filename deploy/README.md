@@ -1,6 +1,6 @@
 # Деплой cv-tailor — два окружения на общем сервере
 
-Сервер: `root@5.35.103.48`. На нём живут 4 стека (cvtailor + reviewlens, test/prod)
+Сервер: `root@109.73.197.92`. На нём живут 4 стека (cvtailor + reviewlens, test/prod)
 за **единым edge-Caddy** (владеет 80/443, авто-TLS Let's Encrypt) и с **единым
 PostgreSQL** (общий инстанс, у каждого окружения своя база). Стек cv-tailor отдаёт
 nginx на loopback-порт, edge проксирует домен на этот порт.
