@@ -76,7 +76,10 @@ jobs:
             git reset --hard "origin/$BRANCH"
             umask 077
             printf '%s' "$DOTENV_B64" | base64 -d > "$APP_DIR/.env"
-            docker compose build --no-cache backend
+            # --no-cache для ВСЕХ собираемых сервисов: worker собирается из того же
+            # контекста ./backend, но отдельным образом — при сборке только backend
+            # он оставался на старом кэше (протухший CA-бандл жил в воркере).
+            docker compose build --no-cache
             docker compose up --build -d
             # nginx резолвит апстримы (backend/frontend) один раз при старте.
             # После пересоздания они получают новые IP → без рестарта nginx отдаёт 502.
@@ -137,7 +140,10 @@ jobs:
             git reset --hard "origin/$BRANCH"
             umask 077
             printf '%s' "$DOTENV_B64" | base64 -d > "$APP_DIR/.env"
-            docker compose build --no-cache backend
+            # --no-cache для ВСЕХ собираемых сервисов: worker собирается из того же
+            # контекста ./backend, но отдельным образом — при сборке только backend
+            # он оставался на старом кэше (протухший CA-бандл жил в воркере).
+            docker compose build --no-cache
             docker compose up --build -d
             # nginx резолвит апстримы (backend/frontend) один раз при старте.
             # После пересоздания они получают новые IP → без рестарта nginx отдаёт 502.
